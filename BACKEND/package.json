@@ -1,0 +1,32 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "eocean's ivr dashboard",
+  "homepage": "https://github.com/SalmanZulfiqarShaikh/EOCEAN-IVR-DASHBOARD#readme",
+  "bugs": {
+    "url": "https://github.com/SalmanZulfiqarShaikh/EOCEAN-IVR-DASHBOARD/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SalmanZulfiqarShaikh/EOCEAN-IVR-DASHBOARD.git"
+  },
+  "license": "ISC",
+  "author": "Salman Zulfiqar Shaikh",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.17",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.11.0",
+    "mysql2": "^3.22.4",
+    "nodemon": "^3.1.14"
+  }
+}
