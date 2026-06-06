@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, Search, Pencil, Trash2 } from 'lucide-react';
 
-export default function DataTable({ columns, rows, searchable = false, pageSize: defaultPageSize = 50 }) {
+export default function DataTable({
+  columns, rows, searchable = false, pageSize: defaultPageSize = 50,
+  onEdit, onDelete, // (rowIndex) => void — when set, action buttons appear
+}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [sortCol, setSortCol] = useState(null);
@@ -95,29 +98,60 @@ export default function DataTable({ columns, rows, searchable = false, pageSize:
                   </span>
                 </th>
               ))}
+              {(onEdit || onDelete) && (
+                <th className="text-center" style={{ width: 80 }}>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {pageData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-12 text-center text-sm font-semibold text-text-light">
+                <td colSpan={columns.length + ((onEdit || onDelete) ? 1 : 0)} className="py-12 text-center text-sm font-semibold text-text-light">
                   No records found
                 </td>
               </tr>
             ) : (
-              pageData.map((row, ri) => (
-                <tr key={ri}>
-                  {row.map((cell, ci) => (
-                    <td
-                      key={ci}
-                      className="max-w-[220px] truncate text-text-main"
-                      title={cell !== null ? String(cell) : ''}
-                    >
-                      {formatCell(cell, columns[ci])}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              pageData.map((row, ri) => {
+                // Calculate global row index within the full sorted/filtered set
+                const rowIdx = start + ri;
+                return (
+                  <tr key={rowIdx}>
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className="max-w-[220px] truncate text-text-main"
+                        title={cell !== null ? String(cell) : ''}
+                      >
+                        {formatCell(cell, columns[ci])}
+                      </td>
+                    ))}
+                    {(onEdit || onDelete) && (
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {onEdit && (
+                            <button
+                              onClick={() => onEdit(rowIdx)}
+                              className="btn-premium btn-ghost btn-icon h-7 w-7 rounded-md"
+                              title="Edit row"
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button
+                              onClick={() => onDelete(rowIdx)}
+                              className="btn-premium btn-ghost btn-icon h-7 w-7 rounded-md text-red hover:bg-red-bg hover:text-red-text hover:border-red/30"
+                              title="Delete row"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

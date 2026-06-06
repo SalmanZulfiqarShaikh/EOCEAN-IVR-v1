@@ -9,7 +9,7 @@ import DataTable from '../components/ui/DataTable';
 import Badge from '../components/ui/Badge';
 import Header from '../components/layout/Header';
 import {
-  Database, Download, Plus, RefreshCw, Search, Server, Table2, Trash2
+  Database, Download, Plus, RefreshCw, Search, Server, Table2, Trash2, Pencil
 } from 'lucide-react';
 import logoUrl from '../assets/images/eoceanlogo.webp';
 
@@ -396,7 +396,7 @@ export default function DbManager() {
                 </table>
               </div>
             ) : (
-              <DataTable columns={columns} rows={rows} pageSize={pageSize} />
+              <DataTable columns={columns} rows={rows} pageSize={pageSize} onEdit={openEdit} onDelete={openDeleteRow} />
             )}
           </div>
         </div>
@@ -445,6 +445,72 @@ export default function DbManager() {
             <div className="flex gap-2 mt-6 justify-end">
               <button onClick={() => setShowDeleteDb(false)} className="btn-premium btn-ghost">Cancel</button>
               <button onClick={handleRemoveDb} className="btn-premium btn-danger bg-red text-white hover:bg-red/80">Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Row Modal ── */}
+      {showEdit && editRow && (
+        <div className="fixed inset-0 bg-black/55 z-1000 flex items-center justify-center" onClick={() => setShowEdit(false)}>
+          <div className="premium-card w-[800px] max-w-[95vw] max-h-[85vh] overflow-auto p-7 sm:p-8" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-text-main mb-4">Edit Row</h3>
+            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 items-center">
+              {columns.map((col, i) => (
+                <div key={i} className="contents">
+                  <label className="premium-label text-right pt-1.5">{col.replace(/_/g, ' ')}</label>
+                  <input
+                    value={editRow[i] ?? ''}
+                    onChange={e => {
+                      const next = [...editRow];
+                      next[i] = e.target.value;
+                      setEditRow(next);
+                    }}
+                    className="premium-input text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-6 justify-end">
+              <button onClick={() => setShowEdit(false)} className="btn-premium btn-ghost">Cancel</button>
+              <button onClick={handleEditSave} className="btn-premium btn-accent">
+                <Pencil className="w-3.5 h-3.5" /> Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Row Confirmation ── */}
+      {showDeleteRow && deleteTarget !== null && (
+        <div className="fixed inset-0 bg-black/55 z-1000 flex items-center justify-center" onClick={() => setShowDeleteRow(false)}>
+          <div className="premium-card w-100 max-w-[95vw] p-7 sm:p-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-bg">
+                <Trash2 className="w-5 h-5 text-red" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-text-main">Delete Row</h3>
+                <p className="text-sm text-text-muted mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-surface-border bg-surface-muted p-4 mb-5 max-h-40 overflow-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {columns.map((col, i) => (
+                    <tr key={i} className="border-b border-surface-border last:border-0">
+                      <td className="py-1.5 pr-4 font-bold text-text-muted whitespace-nowrap">{col.replace(/_/g, ' ')}</td>
+                      <td className="py-1.5 text-text-main">{String(rows[deleteTarget]?.[i] ?? '--')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDeleteRow(false)} className="btn-premium btn-ghost">Cancel</button>
+              <button onClick={handleDeleteConfirm} className="btn-premium btn-danger bg-red text-white hover:bg-red/80">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
             </div>
           </div>
         </div>

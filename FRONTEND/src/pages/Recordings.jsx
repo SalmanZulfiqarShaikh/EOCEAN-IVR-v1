@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getRecordings, getRecordingStreamUrl, getBulkDownloadUrl } from '../services/api';
+import { getRecordings, getRecordingStreamUrl, getBulkDownloadUrl, deleteRecording } from '../services/api';
 import { useDb } from '../context/DbContext';
 import Header from '../components/layout/Header';
 import Badge from '../components/ui/Badge';
@@ -36,6 +36,25 @@ export default function Recordings() {
   
   // Audio reference
   const audioRef = useRef(null);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null); // recording object to delete
+
+  async function handleDeleteRecording() {
+    if (!deleteTarget || !selectedDb) return;
+    try {
+      const res = await deleteRecording(selectedDb, deleteTarget.id);
+      if (res.success) {
+        setRecordings(prev => prev.filter(r => r.id !== deleteTarget.id));
+        setTotal(prev => prev - 1);
+        setSelectedIds(prev => prev.filter(id => id !== deleteTarget.id));
+        setDeleteTarget(null);
+      }
+    } catch (e) {
+      console.error('Failed to delete recording', e);
+      alert('Failed to delete recording');
+    }
+  }
 
   // Fetch recordings
   const fetchRecordings = useCallback(async () => {
@@ -276,11 +295,11 @@ export default function Recordings() {
               <div className="flex flex-col gap-1">
                 <label className="premium-label">Date From</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="date"
                     value={dateFrom}
                     onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                    className="premium-input pl-10"
+                    className="premium-input pl-10!"
                   />
                   <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 </div>
@@ -289,11 +308,11 @@ export default function Recordings() {
               <div className="flex flex-col gap-1">
                 <label className="premium-label">Date To</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="date"
                     value={dateTo}
                     onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                    className="premium-input pl-10"
+                    className="premium-input pl-10!"
                   />
                   <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 </div>
@@ -404,7 +423,7 @@ export default function Recordings() {
                                     <Play className="w-4 h-4 fill-text-muted text-text-muted" />
                                   )}
                                 </button>
-                                <a 
+                                <a
                                   href={getRecordingStreamUrl(selectedDb, recording.id)}
                                   className="btn-premium btn-ghost btn-icon rounded-full h-8 w-8 text-text-light hover:text-text-main no-underline"
                                   title="Download file"
@@ -412,6 +431,13 @@ export default function Recordings() {
                                 >
                                   <Download className="w-4 h-4" />
                                 </a>
+                                <button
+                                  onClick={() => setDeleteTarget(recording)}
+                                  className="btn-premium btn-ghost btn-icon rounded-full h-8 w-8 text-red hover:bg-red-bg hover:text-red-text hover:border-red/30"
+                                  title="Delete recording"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -522,6 +548,34 @@ export default function Recordings() {
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Recording Confirmation ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55" onClick={() => setDeleteTarget(null)}>
+          <div className="premium-card w-100 max-w-[95vw] p-7" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-bg">
+                <Trash2 className="w-5 h-5 text-red" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-text-main">Delete Recording</h3>
+                <p className="text-sm text-text-muted mt-0.5">This cannot be undone.</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-surface-border bg-surface-muted p-4 mb-5">
+              <p className="text-sm text-text-muted">
+                Are you sure you want to delete recording <strong className="text-text-main">{deleteTarget.call_id}</strong> for <strong className="text-text-main">{deleteTarget.phone}</strong>?
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTarget(null)} className="btn-premium btn-ghost">Cancel</button>
+              <button onClick={handleDeleteRecording} className="btn-premium btn-danger bg-red text-white hover:bg-red/80">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

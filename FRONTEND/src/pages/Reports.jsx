@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getReport, getReportMeta } from '../services/api';
+import { getReport, getReportMeta, deleteRow } from '../services/api';
 import { useDb } from '../context/DbContext';
 import Header from '../components/layout/Header';
 import Badge from '../components/ui/Badge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Play, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Play, RotateCcw, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 export default function Reports() {
   const { selectedDb } = useDb();
@@ -26,6 +26,7 @@ export default function Reports() {
   const [page, setPage] = useState(1);
   const [reportSearch, setReportSearch] = useState('');
   const pageSize = 100;
+  const [deleteTarget, setDeleteTarget] = useState(null); // { row, globalIdx }
 
   const loadMeta = useCallback(async () => {
     if (!selectedDb) return;
@@ -156,6 +157,22 @@ export default function Reports() {
     a.href = URL.createObjectURL(blob);
     a.download = `${selectedDb}_report_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  }
+
+  async function handleReportDelete() {
+    if (!deleteTarget || !selectedDb) return;
+    try {
+      const rowObj = {};
+      result.columns.forEach((col, i) => { rowObj[col] = deleteTarget.row[i]; });
+      const res = await deleteRow(selectedDb, 'calls', rowObj);
+      if (res.success) {
+        const rows = result.rows.filter((_, i) => i !== deleteTarget.globalIdx);
+        setResult(prev => ({ ...prev, rows }));
+        setDeleteTarget(null);
+      }
+    } catch (e) {
+      console.error('Report row delete failed', e);
+    }
   }
 
   const groupLabel = filters.groupby === 'campaign_id' ? 'Campaign-wise' :
@@ -347,11 +364,15 @@ export default function Reports() {
                             {col.replace(/_/g, ' ')}
                           </th>
                         ))}
+                        <th className="text-center" style={{ width: 60 }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {pageData.map((row, ri) => (
-                        <tr key={ri}>
+                      {pageData.map((row, ri) => {
+                        // Global index within the full filtered result
+                        const globalIdx = (page - 1) * pageSize + ri;
+                        return (
+                        <tr key={globalIdx}>
                           {row.map((cell, ci) => {
                             const col = result.columns[ci];
                             // Answer rate column detection (for grouped reports)
@@ -372,8 +393,18 @@ export default function Reports() {
                             }
                             return <td key={ci}>{formatCell(cell, col)}</td>;
                           })}
+                          <td className="text-center">
+                            <button
+                              onClick={() => setDeleteTarget({ row, globalIdx })}
+                              className="btn-premium btn-ghost btn-icon h-7 w-7 rounded-md text-red hover:bg-red-bg hover:text-red-text hover:border-red/30"
+                              title="Delete row"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -409,6 +440,32 @@ export default function Reports() {
           </div>
         </div>
       </div>
+
+      {/* ── Report Row Delete Confirmation ── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55" onClick={() => setDeleteTarget(null)}>
+          <div className="premium-card w-100 max-w-[95vw] p-7" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-bg">
+                <Trash2 className="w-5 h-5 text-red" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-text-main">Delete Record</h3>
+                <p className="text-sm text-text-muted mt-0.5">This cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-text-muted mb-5">
+              Are you sure you want to delete this record from the <strong className="text-text-main">calls</strong> table?
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTarget(null)} className="btn-premium btn-ghost">Cancel</button>
+              <button onClick={handleReportDelete} className="btn-premium btn-danger bg-red text-white hover:bg-red/80">
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

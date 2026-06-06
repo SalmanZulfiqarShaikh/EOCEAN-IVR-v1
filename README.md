@@ -61,4 +61,4 @@ FRONTEND/         # React + Vite + Tailwind
 
 ## Made by Salman Zulfiqar Shaikh
 
-Internal — eOcean Technologies
+internal — eOcean Technologies

@@ -75,121 +75,129 @@ for (let i = 0; i < TOTAL_RECORDS; i++) {
 // Sort by date descending
 callRecords.sort((a, b) => b._date - a._date);
 
-// ── Derive Dashboard KPIs ──────────────────────────────────────────
-const now = new Date();
-const todayStr = formatDateShort(now);
-const todayRecords = callRecords.filter(r => formatDateShort(r._date) === todayStr);
+// ── Compute Dashboard from filtered records ────────────────────────
+function computeDashboard(days) {
+  const filtered = days > 0
+    ? callRecords.filter(r => {
+        const diff = (new Date() - r._date) / (1000 * 60 * 60 * 24);
+        return diff <= days;
+      })
+    : callRecords;
 
-const kpi = {
-  total: callRecords.length,
-  answered: callRecords.filter(r => r.status === 'answered').length,
-  not_answered: callRecords.filter(r => r.status === 'not_answered').length,
-  hangup: callRecords.filter(r => r.status === 'hangup').length,
-  busy: callRecords.filter(r => r.status === 'busy').length,
-  failed: callRecords.filter(r => r.status === 'failed').length,
-  avg_duration: Math.round(callRecords.reduce((s, r) => s + r.duration, 0) / callRecords.length),
-  total_duration: callRecords.reduce((s, r) => s + r.duration, 0),
-  today: todayRecords.length,
-};
+  const now = new Date();
+  const todayStr = formatDateShort(now);
+  const todayRecords = filtered.filter(r => formatDateShort(r._date) === todayStr);
 
-// ── Timeline (daily aggregation) ────────────────────────────────────
-const timelineMap = {};
-callRecords.forEach(r => {
-  const key = formatDateShort(r._date);
-  if (!timelineMap[key]) timelineMap[key] = { date: key, total: 0, answered: 0, not_answered: 0, hangup: 0 };
-  timelineMap[key].total++;
-  if (r.status === 'answered') timelineMap[key].answered++;
-  else if (r.status === 'not_answered') timelineMap[key].not_answered++;
-  else if (r.status === 'hangup') timelineMap[key].hangup++;
-});
-const timeline = Object.values(timelineMap).sort((a, b) => a.date.localeCompare(b.date));
+  const kpi = {
+    total: filtered.length,
+    answered: filtered.filter(r => r.status === 'answered').length,
+    not_answered: filtered.filter(r => r.status === 'not_answered').length,
+    hangup: filtered.filter(r => r.status === 'hangup').length,
+    busy: filtered.filter(r => r.status === 'busy').length,
+    failed: filtered.filter(r => r.status === 'failed').length,
+    avg_duration: filtered.length ? Math.round(filtered.reduce((s, r) => s + r.duration, 0) / filtered.length) : 0,
+    total_duration: filtered.reduce((s, r) => s + r.duration, 0),
+    today: todayRecords.length,
+  };
 
-// ── Status Breakdown ────────────────────────────────────────────────
-const statusCounts = {};
-callRecords.forEach(r => {
-  const s = r.status || 'unknown';
-  statusCounts[s] = (statusCounts[s] || 0) + 1;
-});
-const status_breakdown = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+  // Timeline (daily aggregation)
+  const timelineMap = {};
+  filtered.forEach(r => {
+    const key = formatDateShort(r._date);
+    if (!timelineMap[key]) timelineMap[key] = { date: key, total: 0, answered: 0, not_answered: 0, hangup: 0 };
+    timelineMap[key].total++;
+    if (r.status === 'answered') timelineMap[key].answered++;
+    else if (r.status === 'not_answered') timelineMap[key].not_answered++;
+    else if (r.status === 'hangup') timelineMap[key].hangup++;
+  });
+  const timeline = Object.values(timelineMap).sort((a, b) => a.date.localeCompare(b.date));
 
-// ── Campaign Summary ────────────────────────────────────────────────
-const campaignMap = {};
-callRecords.forEach(r => {
-  if (!campaignMap[r.campaign_id]) campaignMap[r.campaign_id] = { campaign_id: r.campaign_id, total: 0, answered: 0, not_answered: 0, total_duration: 0 };
-  campaignMap[r.campaign_id].total++;
-  if (r.status === 'answered') campaignMap[r.campaign_id].answered++;
-  else if (r.status === 'not_answered') campaignMap[r.campaign_id].not_answered++;
-  campaignMap[r.campaign_id].total_duration += r.duration;
-});
-const campaign_summary = Object.values(campaignMap)
-  .map(c => ({ ...c, avg_duration: c.total ? Math.round(c.total_duration / c.total) : 0 }))
-  .sort((a, b) => b.total - a.total);
+  // Status Breakdown
+  const statusCounts = {};
+  filtered.forEach(r => {
+    const s = r.status || 'unknown';
+    statusCounts[s] = (statusCounts[s] || 0) + 1;
+  });
+  const status_breakdown = Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
 
-// ── Duration Distribution ──────────────────────────────────────────
-const buckets = { '0s': 0, '1-15s': 0, '16-30s': 0, '31-60s': 0, '1-2m': 0, '2-5m': 0, '5-10m': 0, '10m+': 0 };
-const bucketOrder = ['0s', '1-15s', '16-30s', '31-60s', '1-2m', '2-5m', '5-10m', '10m+'];
-callRecords.forEach(r => {
-  const d = r.duration;
-  if (d === 0) buckets['0s']++;
-  else if (d <= 15) buckets['1-15s']++;
-  else if (d <= 30) buckets['16-30s']++;
-  else if (d <= 60) buckets['31-60s']++;
-  else if (d <= 120) buckets['1-2m']++;
-  else if (d <= 300) buckets['2-5m']++;
-  else if (d <= 600) buckets['5-10m']++;
-  else buckets['10m+']++;
-});
-const duration_dist = bucketOrder.map(bucket => ({ bucket, count: buckets[bucket] }));
+  // Campaign Summary
+  const campaignMap = {};
+  filtered.forEach(r => {
+    if (!campaignMap[r.campaign_id]) campaignMap[r.campaign_id] = { campaign_id: r.campaign_id, total: 0, answered: 0, not_answered: 0, total_duration: 0 };
+    campaignMap[r.campaign_id].total++;
+    if (r.status === 'answered') campaignMap[r.campaign_id].answered++;
+    else if (r.status === 'not_answered') campaignMap[r.campaign_id].not_answered++;
+    campaignMap[r.campaign_id].total_duration += r.duration;
+  });
+  const campaign_summary = Object.values(campaignMap)
+    .map(c => ({ ...c, avg_duration: c.total ? Math.round(c.total_duration / c.total) : 0 }))
+    .sort((a, b) => b.total - a.total);
 
-// ── Hourly ──────────────────────────────────────────────────────────
-const hourlyMap = {};
-callRecords.forEach(r => {
-  const hour = r._date.getHours();
-  hourlyMap[hour] = (hourlyMap[hour] || 0) + 1;
-});
-const hourly = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: hourlyMap[i] || 0 }));
+  // Duration Distribution
+  const buckets = { '0s': 0, '1-15s': 0, '16-30s': 0, '31-60s': 0, '1-2m': 0, '2-5m': 0, '5-10m': 0, '10m+': 0 };
+  const bucketOrder = ['0s', '1-15s', '16-30s', '31-60s', '1-2m', '2-5m', '5-10m', '10m+'];
+  filtered.forEach(r => {
+    const d = r.duration;
+    if (d === 0) buckets['0s']++;
+    else if (d <= 15) buckets['1-15s']++;
+    else if (d <= 30) buckets['16-30s']++;
+    else if (d <= 60) buckets['31-60s']++;
+    else if (d <= 120) buckets['1-2m']++;
+    else if (d <= 300) buckets['2-5m']++;
+    else if (d <= 600) buckets['5-10m']++;
+    else buckets['10m+']++;
+  });
+  const duration_dist = bucketOrder.map(bucket => ({ bucket, count: buckets[bucket] }));
 
-// ── Direction ───────────────────────────────────────────────────────
-const direction = {
-  outgoing: callRecords.filter(r => r.direction === 'outgoing').length,
-  incoming: callRecords.filter(r => r.direction === 'incoming').length,
-  unknown: 0,
-};
+  // Hourly
+  const hourlyMap = {};
+  filtered.forEach(r => {
+    const hour = r._date.getHours();
+    hourlyMap[hour] = (hourlyMap[hour] || 0) + 1;
+  });
+  const hourly = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: hourlyMap[i] || 0 }));
 
-// ── Alerts ──────────────────────────────────────────────────────────
-const alerts = [];
-const lastDay = timeline[timeline.length - 1];
-if (lastDay && timeline.length > 1) {
-  const avg = timeline.slice(0, -1).reduce((s, d) => s + d.total, 0) / (timeline.length - 1);
-  if (lastDay.total < avg * 0.5) alerts.push(`⚠️ Today's volume (${lastDay.total}) is 50% below average (${Math.round(avg)})`);
-  if (lastDay.total > avg * 2) alerts.push(`📈 Spike detected: today (${lastDay.total}) is 2x above average (${Math.round(avg)})`);
+  // Direction
+  const direction = {
+    outgoing: filtered.filter(r => r.direction === 'outgoing').length,
+    incoming: filtered.filter(r => r.direction === 'incoming').length,
+    unknown: 0,
+  };
+
+  // Alerts
+  const alerts = [];
+  const lastDay = timeline[timeline.length - 1];
+  if (lastDay && timeline.length > 1) {
+    const avg = timeline.slice(0, -1).reduce((s, d) => s + d.total, 0) / (timeline.length - 1);
+    if (lastDay.total < avg * 0.5) alerts.push(`⚠️ Today's volume (${lastDay.total}) is 50% below average (${Math.round(avg)})`);
+    if (lastDay.total > avg * 2) alerts.push(`📈 Spike detected: today (${lastDay.total}) is 2x above average (${Math.round(avg)})`);
+  }
+
+  // CDR (latest records, sorted desc, filtered by days)
+  const cdr = filtered.map(r => ({
+    id: r.id,
+    campaign_id: r.campaign_id,
+    customer_id: r.customer_id,
+    phone: r.phone,
+    status: r.status,
+    direction: r.direction,
+    duration: r.duration,
+    total_attempts: r.total_attempts,
+    created_at: r.created_at,
+  }));
+
+  return {
+    kpi,
+    timeline,
+    status_breakdown,
+    campaign_summary,
+    duration_dist,
+    hourly,
+    direction,
+    cdr,
+    alerts,
+  };
 }
-
-// ── CDR (latest records, already sorted desc) ──────────────────────
-const cdr = callRecords.map(r => ({
-  id: r.id,
-  campaign_id: r.campaign_id,
-  customer_id: r.customer_id,
-  phone: r.phone,
-  status: r.status,
-  direction: r.direction,
-  duration: r.duration,
-  total_attempts: r.total_attempts,
-  created_at: r.created_at,
-}));
-
-// ── Dashboard Response ──────────────────────────────────────────────
-const dashboardData = {
-  kpi,
-  timeline,
-  status_breakdown,
-  campaign_summary,
-  duration_dist,
-  hourly,
-  direction,
-  cdr,
-  alerts,
-};
 
 // ── Reports Data ────────────────────────────────────────────────────
 function getReportData(params = {}) {
@@ -341,7 +349,7 @@ const tableStructure = {
 // ── Export ──────────────────────────────────────────────────────────
 const mockData = {
   // Dashboard
-  getDashboard: () => ({ success: true, data: dashboardData }),
+  getDashboard: (dbName, days) => ({ success: true, data: computeDashboard(days) }),
 
   // Reports
   getReport: (params = {}) => {

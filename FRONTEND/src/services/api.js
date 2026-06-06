@@ -38,7 +38,7 @@ export const deleteRow = (dbName, table, row) =>
 
 // Dashboard
 export const getDashboard = (dbName, days = 30) =>
-  USE_MOCK ? Promise.resolve(mockData.getDashboard()) : api.get(`/dashboard/${encodeURIComponent(dbName)}`, { params: { days } }).then(r => r.data);
+  USE_MOCK ? Promise.resolve(mockData.getDashboard(dbName, days)) : api.get(`/dashboard/${encodeURIComponent(dbName)}`, { params: { days } }).then(r => r.data);
 
 // Reports
 export const getReport = (dbName, params) =>
@@ -53,6 +53,9 @@ export const getRecordingStreamUrl = (dbName, id) =>
   USE_MOCK ? mockData.getRecordingStreamUrl(dbName, id) : `${api.defaults.baseURL}/recordings/${encodeURIComponent(dbName)}/${encodeURIComponent(id)}`;
 export const getBulkDownloadUrl = (dbName, ids) =>
   USE_MOCK ? mockData.getBulkDownloadUrl(dbName, ids) : `${api.defaults.baseURL}/recordings/${encodeURIComponent(dbName)}/bulk?ids=${encodeURIComponent(ids.join(','))}`;
+
+export const deleteRecording = (dbName, id) =>
+  USE_MOCK ? Promise.resolve({ success: true }) : api.delete(`/recordings/${encodeURIComponent(dbName)}/${encodeURIComponent(id)}`).then(r => r.data);
 
 // Metabase
 export const getMetabaseEmbedUrl = (dbName, dashboardId = 1) =>
